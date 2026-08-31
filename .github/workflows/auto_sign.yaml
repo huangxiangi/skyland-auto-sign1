@@ -2,31 +2,59 @@
 name: Auto Sign
 on:
   schedule:
-    - cron: '0 18 * * *'
+    - cron: '0 18 * * *'   # UTC 18:00 = 北京时间次日 02:00
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests
           pip install cryptography
+
       - name: Run main.py
+        id: sign   # 为后续状态获取添加 id
         env:
           GitHub_Actions: true
-          # 对于多个账号一定会有人机验证问题，且因为是密码，有一定的安全风险
-          # PHONE: ${{ secrets.PHONE }}
-          # PASSWORD: ${{ secrets.PASSWORD }}
           TOKEN: ${{ secrets.TOKEN }}
           SC3_SENDKEY: ${{ secrets.SC3_SENDKEY }}
           SC3_UID: ${{ secrets.SC3_UID }}
           EXIT_WHEN_FAIL: ${{ vars.EXIT_WHEN_FAIL }}
         run: |
           python src/main.py
+
+      # ========== 新增钉钉推送步骤 ==========
+      - name: Send DingTalk notification
+        if: always()   # 无论签到成功或失败都发送通知
+        env:
+          DING_ACCESS_TOKEN: ${{ secrets.DINGTALK_ACCESS_TOKEN }}
+          DING_SECRET: ${{ secrets.DINGTALK_SECRET }}
+        run: |
+          # 获取当前时间戳（毫秒）
+          timestamp=$(date +%s%3N)
+          
+          # 如果设置了 Secret，计算签名
+          if [ -n "$DING_SECRET" ]; then
+            sign=$(echo -n "$timestamp\n$DING_SECRET" | openssl sha256 -hmac "$DING_SECRET" -binary | base64)
+            sign_param="&sign=$sign"
+          else
+            sign_param=""
+          fi
+          
+          # 构建消息内容（可自定义）
+          content="签到任务执行完毕！\n状态: ${{ job.status }}\n触发方式: ${{ github.event_name }}\n仓库: ${{ github.repository }}"
+          
+          # 发送钉钉消息
+          curl -X POST "https://oapi.dingtalk.com/robot/send?access_token=$DING_ACCESS_TOKEN$sign_param" \
+            -H "Content-Type: application/json" \
+            -d "{\"msgtype\":\"text\",\"text\":{\"content\":\"$content\"}}"

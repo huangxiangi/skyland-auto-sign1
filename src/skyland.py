@@ -75,8 +75,8 @@ def generate_signature(path, body_or_query):
     :param body_or_query: 如果是GET，则是它的query。POST则为它的body
     :return: 计算完毕的sign
     """
-    # 总是说请勿修改设备时间，怕不是yj你的服务器有问题吧，所以这里特地-2
-    t = str(int(time.time()) - 2)
+    # 总是说请勿修改设备时间，yj服务器似乎修复了，原始时间戳测试可以正常使用 
+    t = str(int(time.time()))
     token = http_local.token.encode('utf-8')
     header_ca = json.loads(json.dumps(header_for_sign))
     header_ca['timestamp'] = t

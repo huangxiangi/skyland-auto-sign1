@@ -1,0 +1,18 @@
+name: Keep Alive
+on:
+  schedule:
+    - cron: "0 0 * * *"  # 每天 UTC 0 点检查一次
+  workflow_dispatch:      # 允许手动测试
+
+jobs:
+  keep_alive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write     # 允许推送提交
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Keep Alive
+        uses: pagopa/dx/actions/keep-alive@main
+        with:
+          bot_token: ${{ secrets.GITHUB_TOKEN }}
